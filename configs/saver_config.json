@@ -1,0 +1,26 @@
+{
+  "hf_endpoint": "https://hf-mirror.com",
+  "model_ids": {
+    "ckbert": "alibaba-pai/pai-ckbert-large-zh",
+    "bge": "BAAI/bge-base-zh-v1.5"
+  },
+  "paths": {
+    "c2vc_model": "./embedding_models/c2vc_model",
+    "c2vp_model": "./embedding_models/c2vp_model",
+    "c2vw_model": "./embedding_models/c2vw_model",
+    "c2vb_model": "./embedding_models/c2vb_model",
+    "v_ckbert": "./embeddings/v_ckbert",
+    "v_pinyin": "./embeddings/v_pinyin",
+    "v_wubi": "./embeddings/v_wubi",
+    "v_bge": "./embeddings/v_bge"
+  },
+  "word2vec": {
+    "vector_size": 256,
+    "window": 5,
+    "min_count": 1,
+    "workers": 4,
+    "sg": 1,
+    "epochs": 20,
+    "seed": 42
+  }
+}

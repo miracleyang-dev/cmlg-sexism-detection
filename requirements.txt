@@ -1,0 +1,11 @@
+numpy==2.2.6
+pandas==2.3.3
+gensim==4.4.0
+pypinyin==0.55.0
+pywubi==0.3.0
+transformers==5.5.0
+openpyxl==3.1.5
+scikit-learn==1.5.2
+torch==2.6.0
+torchvision==0.21.0
+torchaudio==2.6.0

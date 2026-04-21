@@ -1,0 +1,24 @@
+{
+  "train": {
+    "epochs": 100,
+    "batch_size": 32,
+    "lr": 0.0005,
+    "weight_decay": 0.0005,
+    "random_state": 42,
+    "val_ratio": 0.2,
+    "early_stopping_patience": 15,
+    "min_delta": 0.0001,
+    "cv_folds": 5,
+    "verbose": true,
+    "grad_clip_norm": 1.0,
+    "scheduler_patience": 5,
+    "scheduler_factor": 0.5
+  },
+  "settings": [
+    {"name": "only_c", "use_c": true, "use_p": false, "use_w": false, "use_b": false},
+    {"name": "only_b", "use_c": false, "use_p": false, "use_w": false, "use_b": true},
+    {"name": "c+b", "use_c": true, "use_p": false, "use_w": false, "use_b": true},
+    {"name": "c+p+w", "use_c": true, "use_p": true, "use_w": true, "use_b": false},
+    {"name": "c+p+w+b", "use_c": true, "use_p": true, "use_w": true, "use_b": true}
+  ]
+}

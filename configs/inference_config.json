@@ -1,0 +1,10 @@
+{
+  "ckbert": {
+    "native_output_dim": 1024,
+    "enable_linear_projection": false
+  },
+  "bge": {
+    "native_output_dim": 768,
+    "query_instruction": "为这个句子生成表示以用于检索相关文章："
+  }
+}

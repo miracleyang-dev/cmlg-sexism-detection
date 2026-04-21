@@ -1,0 +1,136 @@
+﻿\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{parskip}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{indentfirst}
+
+\geometry{a4paper, margin=1in}
+\onehalfspacing{}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.5\baselineskip}
+
+\title{A study on the Detection of Gender Antagonism Tendency in Chinese Social Media Based on CMLG Model}
+\author{%
+Author: \underline{Yonghao Yang} \\
+Institution/School: \underline{Wuhan University} \\
+Email: \underline{13235595638@163.com}%
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+% Abstract (150--250 words)
+% Summarize the research background, methodology, main findings, and implications.
+\end{abstract}
+
+\noindent\textbf{Keywords: gender antagonism; deep learning; LLM; machine learning; NLP} % Write 3--6 keywords here.
+
+\section{Introduction}
+% (~450 words)
+% Introduce the topic, research background, importance, objectives,
+% research questions or hypotheses, and outline the paper.
+As social media increasingly serves as the dominant arena for public opinion exchange, sexism and gender-oriented hostility have emerged as pressing societal concerns [1,2]. Despite their prevalence, these issues remain under-examined in both academic inquiry and public policy. Beyond deepening inter-gender tensions, such hostile discourse carries tangible consequences for the psychological well-being of younger cohorts, particularly university students who have not yet entered the labor market [2]. The problem is compounded by escalating domestic conflicts and a widening reluctance toward marriage and childbearing, trends amplified by social media exposure, which collectively undermine individual welfare and long-term social stability [2,3]. Consequently, developing reliable methods to monitor and detect gender-antagonistic discourse online holds considerable theoretical and practical value.
+
+In the context of online communication, gender discrimination manifests as prejudiced or hostile language targeting individuals based on their gender [1]. This study defines gender antagonism tendency as the directional stance conveyed by such expressions, rather than their hostility intensity alone [2]. Two opposing orientations are distinguished: pro-male / anti-female and pro-female / anti-male. Misogynistic statements exemplify the former [3], whereas misandric statements exemplify the latter. Notably, general abusive language that lacks an explicit gender-directional component falls outside the scope of this work. The rationale for adopting a tendency-oriented perspective is that directional labels carry greater utility for downstream tasks such as targeted intervention, content governance, and platform moderation policy formulation in Chinese social media environments.
+
+Although considerable progress has been made in English-language sexism detection, spanning both benchmark construction and model innovation, comparable efforts for Chinese remain sparse. Most existing Chinese-language approaches still rely on coarse-grained binary classification, which cannot adequately capture the directional stance embedded in complex social media discourse. To bridge this gap, the present study introduces a finer-grained labeling scheme for gender antagonism tendency identification. Leveraging the intrinsic properties of Chinese characters, our approach fuses multiple feature modalities, including linguistic and orthographic signals, to obtain richer text representations [9]. Specifically, we propose a CKBERT-based Multi-Feature LLM-enhanced Bi-GRU model (CMLG), which integrates contextual semantics with Chinese-specific features such as pinyin and wubi encodings to strengthen robustness under diverse social media conditions. The overarching goal is to provide an effective and transferable technical pathway for fine-grained antagonism detection and subsequent content governance.
+
+\section{Literature Review}
+Research applying machine learning to gender-based hostility detection remains at an early stage. This section surveys relevant work in three strands, noting that only a few studies have directly targeted gender antagonism as defined in the present paper.
+\subsection{English-language Studies with High-quality Datasets}
+To counter harmful online speech, Gutam et al. introduced the Feminist Cyber Resistance Framework (FCRF), which pairs a BERT-based classifier with community-enhanced annotations [4]. Their system reduced manual moderation effort by 40\% while attaining 91.5\% precision in identifying sexist content. Separately, Singh et al. contributed the first benchmark for misogynistic attitude detection in Hindi--English code-mixed text, compiled from YouTube comments [5]. A systematic comparison of conventional machine learning, deep learning, and transformer-based classifiers revealed that mBERT yielded the strongest results on both subtasks. Collectively, these efforts establish valuable data resources that underpin subsequent research in this domain.
+\subsection{English-language Studies with Methodological Advances}
+On the modeling front, Vivekananda et al. combined BERT with traditional machine learning classifiers, augmented by weak supervision and domain adaptation [6]. Their design highlights the importance of detecting subtle linguistic cues and demonstrates the potential of hybrid architectures. In a complementary direction, Mohasseb et al. benchmarked a broad spectrum of models and introduced Latent Dirichlet Allocation (LDA) together with Sentence-Transformers for data augmentation [7], with particular emphasis on improving generalization across corpora. These two lines of work jointly advance the methodological toolkit available for sexism detection.
+\subsection{Chinese-language Research}
+Although gender-related toxicity detection has attracted growing attention globally, work that specifically targets gender opposition within Chinese social media remains scarce. A landmark contribution is the SWSR dataset [8], the first Chinese corpus annotated for online sexism, which provides three levels of labeling: binary sexism judgment, fine-grained type classification, and target identification. Building on SWSR, Ma et al. exploited the pictographic and orthographic properties unique to Chinese characters [9], achieving a 5.19-percentage-point gain in F1 score and demonstrating robust generalization on the Weibo\_senti\_100k corpus. These two studies mark an important step toward closing the gap in Chinese-language gender polarization detection, yet the absence of directional stance labels motivates the finer-grained scheme proposed in the present work.
+
+\section{Methodology}
+\subsection{Dataset}
+\subsubsection{Problem Definition}
+This task is formulated as a three-class text classification problem, where the input is a textual instance and the output is one of three predefined labels: 
+(1) gender-neutral / non-sexist, 
+(2) pro-male / anti-female, and 
+(3) pro-female / anti-male.
+
+Specifically, if a sentence does not satisfy any of the conditions in the relevant definition from [8], it is considered class (1). If a sentence meets at least one of those conditions and supports a male position or expresses opposition toward women, it is labeled as category (2). Conversely, if the sentence aligns with a female position or opposes men, it is labeled as class (3).
+\subsubsection{Dataset Construction}
+Since the original data from the SWSR dataset only indicate whether a comment is sexist or not, it is necessary to construct a dataset with finer-grained labels that capture stance information. Initially, this study intended to rely on large language models (LLMs) via API-based voting for label assignment. However, preliminary experiments revealed that LLMs may exhibit inherent sexist biases, making them unsuitable as sole annotators for this task. Therefore, we adopted human annotation and refined the labeled sexist statements in SWSR by further classifying them into categories (2) and (3).
+\subsection{Data Preprocessing and Feature Engineering}
+In this study, feature extraction is performed in four parallel streams, each capturing a distinct aspect of the input text.
+\subsubsection{Semantic Features (CKBERT)}
+The CK-BERT, a Chinese knowledge-enhanced pre-trained encoder model based on the architecture of Bidirectional Encoder Representations from Transformers (BERT), is employed as a primary semantic feature extractor [10]. In this process, every character of the original input is mapped to a corresponding vector through a knowledge-enhanced embedding layer that integrates character-level representations, entity-type embeddings from a Chinese knowledge graph, and a dynamic masking mechanism. The output of this stream is denoted as $v_c \in \mathbb{R}^{1024}$.
+
+\subsubsection{Phonetic Features (Pinyin)}
+Many Chinese social media texts involve homophonic substitution, where users replace sensitive words with characters sharing the same pronunciation, or retain pinyin-input typos without correction. Therefore, different characters with the same pinyin structure may still convey similar meanings. To capture this phenomenon, we use the Word2Vec model to transform the pinyin sequence of the original input into phonetic features, denoted as $v_p \in \mathbb{R}^{256}$. Each token vector is L2-normalized to ensure consistent scale across feature streams.
+
+\subsubsection{Structural Features (Wubi)}
+In Chinese online discourse, users also frequently employ graphically similar characters to express similar meanings, either by habit or to circumvent platform moderation. Since many such substitutions share related Wubi keystroke patterns, structural information is also important. We therefore adopt the Word2Vec model to convert Wubi encodings of the original input into structural features, denoted as $v_w \in \mathbb{R}^{256}$. Similarly, L2 normalization is applied to each token vector.
+
+\subsubsection{LLM-enhanced Features (BGE)}
+For LLM-enhanced semantic representation, we use the BAAI General Embedding model (BGE) to generate dense vectors. Although instruction prefixes are commonly used in retrieval-oriented settings, we do not prepend a query instruction in this task. The main reason is that adding a prefix changes token allocation under a fixed maximum sequence length and may increase truncation of the original content. To preserve the integrity of the input semantics and maintain consistent character-level alignment, we encode the original text directly. Token embeddings are aligned to character positions via offset mapping, and the embeddings covering each character are averaged. The character-level embeddings are L2-normalized, yielding $v_b \in \mathbb{R}^{768}$.
+
+\subsubsection{Feature Fusion}
+The resulting feature vectors are concatenated to form a unified representation:
+\[
+V = \operatorname{concatenate}(v_c, v_p, v_w, v_b).
+\]
+The raw concatenated vector has a dimensionality of $1024 + 256 + 256 + 768 = 2304$. Since the four feature streams differ substantially in their original dimensions, directly feeding the concatenated vector into the downstream model may cause the higher-dimensional streams to dominate gradient updates. To address this, a per-stream learnable projection layer is introduced before the sequence modeling stage. Each stream is independently projected to a uniform dimensionality of 256 through a linear transformation followed by layer normalization and GELU activation. The projected representations are then concatenated to produce the final input vector $v \in \mathbb{R}^{1024}$ ($256 \times 4$), ensuring that each feature stream contributes equally to the downstream classifier.
+
+\subsection{Model Architecture}
+After feature engineering and per-stream projection, the joint vector $v \in \mathbb{R}^{1024}$ is fed into the downstream model. The overall architecture (Figure 1) consists of three components: a sequence modeling layer, a fully connected layer with regularization, and an output layer for classification.
+\subsubsection{Sequence Modeling Layer}
+The concatenated feature vector $v$ is input to a bidirectional gated recurrent unit (Bi-GRU). In practice, the GRU often achieves comparable performance to long short-term memory (LSTM) while using fewer parameters, which helps to reduce training time and mitigate overfitting. Meanwhile, the bidirectional design enables the model to capture contextual information from both past and future directions, which is important for understanding nuanced gender-opposition expressions that rely on long-range dependencies.
+\subsubsection{Fully Connected Layer with Regularization}
+The output of the Bi-GRU, denoted as $v_{\mathrm{GRU}}$, is passed through a fully connected layer with 128 units, followed by batch normalization to stabilize training and accelerate convergence. A dropout layer with a rate of 0.3 is further applied to reduce overfitting risk. Given the limited size of labeled data in each category, these regularization strategies are particularly important.
+\subsubsection{Output Layer for Classification}
+The regularized feature vector $v_F$ is then projected into a three-dimensional logit space through a linear layer. A softmax activation function will be applied to obtain the probability distribution over the three classes, and the class with the highest probability will be selected as the final prediction.
+
+% \textbf{Training Strategy.} The model is trained using the AdamW optimizer with an initial learning rate of $1 \times 10^{-3}$ and weight decay of $1 \times 10^{-4}$. Gradient clipping with a maximum norm of 1.0 is applied to prevent exploding gradients in the recurrent layers. A ReduceLROnPlateau scheduler monitors the validation macro-F1 score and reduces the learning rate by a factor of 0.5 if no improvement is observed for 7 consecutive epochs. Early stopping with a patience of 20 epochs is employed based on the same metric. To handle class imbalance, Focal Loss ($\gamma = 2.0$) with inverse-frequency class weights is adopted as the training objective.
+
+\section{Results}
+% (~600 words)
+% Present findings clearly with text, tables, and figures.
+% Report statistical outcomes or thematic patterns.
+
+\section{Discussion}
+% (~600 words)
+% Interpret findings, compare with existing literature,
+% highlight contributions, limitations, and implications.
+
+\section{Conclusion}
+% (~300 words)
+% Summarize key findings, answer research questions,
+% and suggest directions for future research.
+
+\section*{References}
+\begin{enumerate}
+\item X. Luo, B. Liang, Q. Wang, J. Li, E. Cambria, X. Zhang, Y. He, M. Yang, and R. Xu, ``A literature survey on multimodal and multilingual sexism detection,'' \textit{IEEE Trans. Comput. Social Syst.}, vol.~12, no.~5, pp.~3709--3727, 2025, doi: 10.1109/TCSS.2025.3561921.
+
+\item B. Qin and X. Wang, ``The impact of gender antagonism online public opinion on contemporary college students and countermeasures,'' \textit{J. Langfang Norm. Univ. (Soc. Sci. Ed.)}, vol.~40, no.~2, pp.~95--102, 2024, doi: 10.16124/j.cnki.cn13-1390/c.2024.02.002.
+
+\item L. Fontanella, B. Chulvi, E. Ignazzi, A. Sarra, and A. Tontodimamma, ``How do we study misogyny in the digital age? A systematic literature review using a computational linguistic approach,'' \textit{Humanit. Soc. Sci. Commun.}, vol.~11, no.~1, p.~478, Apr. 2024, doi: 10.1057/s41599-024-02978-7.
+
+\item B. G. Gutam, S. C. D, J. N. Kumar, S. D. Babu, J. S. Babu, and M. S. Kumar, ``A machine learning and community-driven approach for feminist cyber resistance framework to mitigate online gender-based violence,'' in \textit{Proc. 4th OPJU Int. Technol. Conf. (OTCON) Smart Comput. Innov. Adv. Ind. 5.0}, 2025, pp.~1--5, doi: 10.1109/OTCON65728.2025.11070859.
+
+\item A. Singh, D. Sharma, and V. K. Singh, ``Misogynistic attitude detection in YouTube comments and replies: A high-quality dataset and algorithmic models,'' \textit{Comput. Speech Lang.}, vol.~89, Art. no. 101682, 2025, doi: 10.1016/j.csl.2024.101682.
+
+\item M. N. Vivekananda, V. V. Malgi, and P. A. Shidlyali, ``Integrating transformers and hybrid machine learning models for automated sexism detection in online discourse,'' in \textit{Proc. Int. Conf. Advances Modern Age Technol. Health Eng. Sci. (AMATHE)}, 2025, pp.~1--6, doi: 10.1109/amathe65477.2025.11081244.
+
+\item A. Mohasseb, E. Amer, F. Chiroma, and A. Tranchese, ``Leveraging advanced NLP techniques and data augmentation to enhance online misogyny detection,'' \textit{Appl. Sci.}, vol.~15, no.~2, Art. no. 856, Jan. 2025, doi: 10.3390/app15020856.
+
+\item A. Jiang, X. Yang, Y. Liu, and A. Zubiaga, ``SWSR: A Chinese dataset and lexicon for online sexism detection,'' \textit{Online Social Netw. Media}, vol.~27, p.~100182, 2022, doi: 10.1016/j.osnem.2021.100182.
+
+\item Z. Ma, S. Zhang, Y. Liu, and G. Zhang, ``A gender-opposition speech recognition method integrating multi-features and expression emotion dictionary,'' \textit{J. Data Acquis. Process.}, vol.~39, no.~3, 2024, doi: 10.16337/j.1004-9037.2024.03.017.
+\end{enumerate}
+
+\end{document}

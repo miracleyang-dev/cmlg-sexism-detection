@@ -62,3 +62,6 @@ embedding_models/
 *.toc
 *.xdv
 *.pdf
+
+# Experiment Results / Outputs
+results/

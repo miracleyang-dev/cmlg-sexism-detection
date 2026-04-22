@@ -198,8 +198,11 @@ def iter_batches(n: int, batch_size: int, seed: int) -> list[np.ndarray]:
     rng = np.random.default_rng(seed)
     idx = np.arange(n)
     rng.shuffle(idx)
-    return [idx[i:i + batch_size] for i in range(0, n, batch_size)]
-
+    batches = [idx[i:i + batch_size] for i in range(0, n, batch_size)]
+    # Drop last batch if it has only 1 sample (BatchNorm requires >= 2)
+    if len(batches) > 1 and len(batches[-1]) < 2:
+        batches = batches[:-1]
+    return batches
 
 @torch.no_grad()
 def predict_model(model: CMLG, X: list[torch.Tensor], batch_size: int = 128) -> torch.Tensor:

@@ -92,10 +92,10 @@ def clean_artifacts():
                     print(f"  Removed W2V:  {f}/")
 
     # 3. Delete previous ablation results
-    abl_file = Path("./ablation_rows.json")
+    abl_file = Path("./results/ablation_rows.json")
     if abl_file.exists():
         abl_file.unlink()
-        print("  Removed file: ./ablation_rows.json")
+        print("  Removed file: ./results/ablation_rows.json")
 
     # 4. Verify embeddings dir is actually gone
     emb_dir = Path("./embeddings")
@@ -128,7 +128,7 @@ def w2v_exists(name: str) -> bool:
 
 def dataset_results_complete(ds_name: str, expected_settings: int = 5) -> bool:
     """Check if a dataset's results file has all ablation settings completed."""
-    p = Path(f"./results_{ds_name}.json")
+    p = Path(f"./results/results_{ds_name}.json")
     if not p.exists():
         return False
     try:
@@ -171,9 +171,9 @@ for ds_name, ds_cfg in DATASETS.items():
 
     # --- Quick check: skip entire dataset if results already complete ---
     if dataset_results_complete(ds_name, len(abl.ABLATION_SETTINGS)):
-        print(f"\n  [SKIP] results_{ds_name}.json already has all "
+        print(f"\n  [SKIP] ./results/results_{ds_name}.json already has all "
               f"{len(abl.ABLATION_SETTINGS)} settings. Skipping dataset.")
-        results_path = f"./results_{ds_name}.json"
+        results_path = f"./results/results_{ds_name}.json"
         ablation_df = utils.format_results_frame(utils.load_results_frame(results_path))
         all_results[ds_name] = ablation_df.copy()
         continue
@@ -267,10 +267,13 @@ for ds_name, ds_cfg in DATASETS.items():
     print(f"  V_c={V_c[0].shape[1]}d, V_p={V_p[0].shape[1]}d, "
           f"V_w={V_w[0].shape[1]}d, V_b={V_b[0].shape[1]}d")
 
+    # Ensure results folder exists before doing ablation
+    Path("./results").mkdir(parents=True, exist_ok=True)
+
     # --- Step 6: Ablation study (with per-setting resume) ---
     print("\n[Step 6] Running ablation study (5-fold CV)...")
     cfg = abl.TrainConfig()
-    results_path = Path("./ablation_rows.json")
+    results_path = Path("./results/ablation_rows.json")
     ablation_rows = utils.load_json_list(str(results_path))
     common_kwargs = dict(V_c=V_c, V_p=V_p, V_w=V_w, V_b=V_b, labels=labels, config=cfg)
 
@@ -309,7 +312,7 @@ for ds_name, ds_cfg in DATASETS.items():
         print(ablation_df[diag_cols].round(4).to_string())
 
     # Save dataset-specific results
-    ds_result_path = f"./results_{ds_name}.json"
+    ds_result_path = f"./results/results_{ds_name}.json"
     utils.save_json_list(ablation_rows, ds_result_path)
     print(f"  Saved to {ds_result_path}")
     all_results[ds_name] = ablation_df.copy()
@@ -344,10 +347,11 @@ if comparison_rows:
     comp_df = comp_df.sort_values(["setting", "dataset"]).reset_index(drop=True)
     print(comp_df.round(4).to_string())
 
-    # Save comparison
-    comp_df.to_csv("./results_comparison.csv", index=False)
-    comp_df.to_excel("./results_comparison.xlsx", index=False)
-    print("\nSaved: results_comparison.csv / results_comparison.xlsx")
+    # Save comparison to results directory
+    Path("./results").mkdir(parents=True, exist_ok=True)
+    comp_df.to_csv("./results/results_comparison.csv", index=False)
+    comp_df.to_excel("./results/results_comparison.xlsx", index=False)
+    print("\nSaved: ./results/results_comparison.csv / ./results/results_comparison.xlsx")
 
     # Best result per dataset
     print("\n--- Best F1 per dataset ---")

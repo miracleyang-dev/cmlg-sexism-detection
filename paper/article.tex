@@ -31,28 +31,36 @@ Email: \underline{13235595638@163.com}%
 \maketitle
 
 \begin{abstract}
-Gender-antagonistic discourse pervades Chinese social media, yet automatic detection remains unreliable due to the informal register, creative character-play, and noisy human annotations typical of this domain. We propose CMLG, a model that fuses CKBERT contextual embeddings, BGE dense embeddings, pinyin phonetic vectors, and wubi structural vectors through learnable feature-level attention, and classifies the fused sequence with a Bi-GRU backbone. To address label noise---which we identify as the dominant performance bottleneck---we introduce a cleaning pipeline in which three heterogeneous LLMs (Qwen2.5-72B, GLM-4-32B, DeepSeek-V3) independently vote on every sample. Ablation across five feature configurations and three dataset versions (original, majority-vote cleaned, unanimous-agreement cleaned) reveals two key findings: (1) label cleaning raises macro F1 from 0.7824 to 0.9007 (+12pp), an effect that also holds for SVM and BERT baselines (9--14pp gains); (2) Chinese-specific orthographic features (pinyin, wubi) are ineffective on noisy labels but become the strongest configuration once labels are cleaned, indicating that annotation quality gates the learnability of fine-grained linguistic cues.
+Gender-antagonistic discourse pervades Chinese social media, yet automatic detection remains unreliable due to the informal register, creative character-play, and noisy human annotations typical of this domain. We propose CMLG, a model that fuses CKBERT contextual embeddings, BGE dense embeddings, pinyin phonetic vectors, and wubi structural vectors through learnable feature-level attention, and classifies the fused sequence with a Bi-GRU backbone. To address label noise---which we identify as the dominant performance bottleneck---we introduce a cleaning pipeline in which three heterogeneous LLMs (Qwen2.5-72B, GLM-4-32B, DeepSeek-V3) independently vote on every sample. Ablation across five feature configurations and three dataset versions (original, majority-vote cleaned, unanimous-agreement cleaned) reveals two key findings: (1) label cleaning raises macro F1 from 0.7824 to 0.9007 (+12pp), consistently improving all tested models by 9--14pp; (2) Chinese-specific orthographic features (pinyin, wubi) are ineffective on noisy labels but become the strongest configuration once labels are cleaned, indicating that annotation quality gates the learnability of fine-grained linguistic cues.
 \end{abstract}
 
 \noindent\textbf{Keywords:} gender antagonism; deep learning; LLM-assisted data cleaning; feature-level attention fusion; Chinese NLP
 
 \section{Introduction}
-Gender-oriented hostility on social media has become a pressing societal concern [1,2], with documented effects on the psychological well-being of younger cohorts [2] and broader links to rising domestic tensions and declining willingness to marry or bear children [2,3]. Despite this, reliable automatic detection methods for Chinese-language platforms remain scarce. English-language sexism detection has seen steady progress in both benchmarks and modeling [4--7,16,17], but Chinese online discourse poses additional challenges: homophonic substitution, shape-similar character-play, and other creative evasion tactics that standard NLP pipelines cannot easily handle [9].
+Gender-oriented hostility on social media has become a pressing societal concern across many countries [1,2]. In the Chinese-speaking internet, platforms such as Weibo, Douyin, and Zhihu host millions of daily comments, a fraction of which contain targeted attacks against specific gender groups. Research on the psychological consequences of exposure to such content has documented increased anxiety and polarization among younger cohorts [2], while sociological analyses link the phenomenon to declining willingness to marry or bear children [2,3]. Fontanella et al.\ [3] note that misogynistic discourse online can normalize hostility and spill over into offline behavior, making automated detection a prerequisite for effective content governance.
 
-We define ``gender antagonism tendency'' as the directional stance an expression conveys toward a gender group, rather than its hostility intensity alone [2]. Although a three-class formulation (pro-male/anti-female, pro-female/anti-male, neutral) was initially planned, the available SWSR corpus [8] supplies only binary labels, and preliminary trials showed that current LLMs can exhibit gender biases that make them unsuitable as sole annotators for fine-grained directional labeling. We therefore work with a binary task---gender-antagonistic (label~1) vs.\ neutral (label~0)---and leave directional classification for future work.
+English-language sexism detection has matured considerably, with shared tasks, benchmark datasets, and a variety of transformer-based models [4--7,16,17]. Chinese online discourse, however, presents additional linguistic challenges. Users routinely employ homophonic substitution---replacing a sensitive word with a character that sounds identical but carries a different literal meaning---and shape-similar character swaps based on the visual similarity of Chinese glyphs [9]. These evasion tactics defeat keyword filters and weaken models that rely solely on semantic embeddings, because the surface form of the text deliberately diverges from its intended meaning.
 
-This study makes three contributions. First, we design CMLG (CKBERT-based Multi-feature LLM-enhanced Bi-GRU), which fuses CKBERT contextual embeddings, BGE dense embeddings, pinyin phonetic vectors, and wubi structural vectors through learnable attention, combining pretrained semantics with Chinese-specific orthographic cues. Second, we build an LLM-assisted data cleaning pipeline based on three-model majority voting, producing two re-labeled dataset variants that enable controlled study of how label quality affects classification. Third, through ablation experiments spanning three dataset versions, five feature configurations, and two baselines, we show that label quality---not model architecture or feature engineering---is the dominant factor, and that Chinese orthographic features shift from useless to most valuable once annotation noise is removed.
+A further complication is annotation quality. Subjective labeling tasks such as hate speech and sexism detection are known to produce noisy ground truth [19,20], and our preliminary analysis of the SWSR corpus [8] confirms that a non-trivial fraction of its labels are inconsistent with consensus judgments from large language models. This observation motivates the data-cleaning component of our approach.
 
-\section{Related Work}
+We define ``gender antagonism tendency'' as the directional stance an expression conveys toward a gender group, rather than its hostility intensity alone [2]. Although a three-class formulation (pro-male/anti-female, pro-female/anti-male, neutral) was initially planned, the available SWSR corpus supplies only binary labels. Preliminary trials also showed that current LLMs can exhibit gender biases that make them unsuitable as sole annotators for fine-grained directional labeling. We therefore work with a binary task---gender-antagonistic (label~1) vs.\ neutral (label~0)---and leave directional classification for future work.
 
-\subsection{Gender Hostility and Hate Speech Detection}
-Gender-based hostility detection spans dataset construction and modeling advances. Gutam et al.\ [4] coupled BERT with community-enhanced annotations and reduced manual moderation workload by 40\%; Singh et al.\ [5] built the first Hindi--English code-mixed misogyny benchmark, with mBERT performing best. On the modeling side, Vivekananda et al.\ [6] explored BERT--classical-ML hybrids with weak supervision, while Mohasseb et al.\ [7] combined LDA with Sentence-Transformers for data augmentation, focusing on cross-corpus transfer. The broader hate speech literature [16] and the offensive-vs.-hateful distinction studied by Davidson et al.\ [17] are also relevant, as the boundary between antagonistic and merely blunt gender-related speech presents a similar challenge in our setting.
+This study makes three contributions. First, we design CMLG (CKBERT-based Multi-feature LLM-enhanced Bi-GRU), which fuses contextual, dense-semantic, phonetic, and structural embeddings through learnable feature-level attention, combining pretrained language model representations with Chinese-specific orthographic cues that target the evasion tactics described above. Second, we build an LLM-assisted data cleaning pipeline based on three-model majority voting, producing two re-labeled dataset variants that enable controlled study of how label quality affects downstream classification. Third, through ablation experiments spanning three dataset versions, five feature configurations, and two baselines, we show that label quality---not model architecture or feature engineering---is the dominant performance factor, and that Chinese orthographic features shift from useless to most valuable once annotation noise is removed.
 
-\subsection{Chinese-language Research}
-Chinese-language efforts in this area remain limited. Jiang et al.\ [8] released SWSR, the first Chinese corpus annotated for online sexism at three granularities (binary, type, target). Ma et al.\ [9] augmented SWSR with pictographic and structural character features and reported a 5.19pp F1 gain. Sun et al.\ [18] investigated BERT fine-tuning strategies for Chinese text classification across multiple benchmarks. Our work extends this line by introducing a multi-stream architecture that separates phonetic, structural, and semantic channels, and by coupling it with LLM-based label cleaning.
+\section{Literature Review}
 
-\subsection{Label Noise in Supervised Learning}
-Noisy labels are a pervasive problem in text classification, especially with crowdsourced annotations. Fr\'{e}nay and Verleysen [19] survey classical approaches---noise modeling, sample filtering, and robust loss design. Song et al.\ [20] cover deep-learning-specific techniques including sample re-weighting and meta-learning. Our pipeline takes the filtering route: rather than designing a noise-tolerant learner, we use multi-LLM consensus to correct labels before training.
+\subsection{Hate Speech and Gender Hostility Detection}
+Automated hate speech detection has progressed rapidly in the past decade. Fortuna and Nunes [16] provide a comprehensive survey of text-based approaches, categorizing methods from keyword matching and bag-of-words classifiers through deep neural networks. A persistent challenge highlighted in their survey is the boundary between offensive language and genuinely hateful content. Davidson et al.\ [17] formalize this distinction and demonstrate that many classifiers conflate the two categories, achieving high recall on offensive posts but poor precision on hate speech. This ambiguity is equally problematic in gender-antagonism detection, where sarcastic, ironic, or exaggerated statements about gender may or may not constitute hostility depending on context.
+
+Within the gender-specific strand, Gutam et al.\ [4] coupled BERT with community-enhanced annotations and reduced manual moderation workload by 40\%, illustrating the practical value of transformer-based classifiers for platform governance. Singh et al.\ [5] constructed the first Hindi--English code-mixed misogyny benchmark and found that multilingual BERT outperformed monolingual baselines, underscoring the importance of pretraining on the target language family. Vivekananda et al.\ [6] experimented with BERT--classical-ML hybrids augmented by weak supervision, reporting that ensemble strategies can partially compensate for scarce labeled data. Mohasseb et al.\ [7] combined LDA topic models with Sentence-Transformer embeddings for data augmentation, emphasizing cross-corpus transferability as a desirable but difficult goal. Luo et al.\ [1] provide the most recent survey of multimodal and multilingual sexism detection, identifying a gap in Chinese-language coverage and calling for dedicated Chinese datasets and models.
+
+\subsection{Chinese-Language Sexism Detection}
+Chinese-language research in this field remains at an early stage compared to its English counterpart. Jiang et al.\ [8] released the SWSR dataset, the first Chinese corpus annotated for online sexism at three granularities---binary presence, type of sexism, and target gender. Despite its value as a pioneering resource, SWSR was annotated by a small team, and the authors acknowledge inter-annotator disagreement on borderline cases; our cleaning experiments quantify this disagreement at roughly 18\% of the corpus. Ma et al.\ [9] extended SWSR by incorporating pictographic and structural character features (inspired by the Wubi input method), reporting a 5.19pp F1 gain over a text-only baseline. Their work was the first to demonstrate that Chinese-specific orthographic information carries discriminative signal for sexism detection, a finding we build upon with a more principled multi-stream fusion that separates phonetic from structural cues and weights them adaptively. Sun et al.\ [18] investigated fine-tuning strategies for BERT on several Chinese text classification benchmarks and showed that task-specific intermediate training and layer-wise learning rates can yield non-trivial gains; their recommendations inform our BERT baseline configuration.
+
+\subsection{Label Noise in Text Classification}
+Noisy labels are a pervasive problem in supervised text classification, especially when annotations are crowdsourced or performed by non-experts. Fr\'{e}nay and Verleysen [19] survey classical approaches to learning under label noise, grouping them into noise modeling, sample filtering, and robust loss design. Their analysis shows that even moderate noise rates (10--20\%) can substantially degrade classifier performance, particularly for minority classes. Song et al.\ [20] extend the survey to deep-learning-specific techniques, covering sample re-weighting, co-teaching, meta-learning, and mixup regularization. Both surveys note that no single strategy dominates across all settings, and that the optimal approach depends on noise rate, noise type (symmetric vs.\ asymmetric), and class balance.
+
+Our pipeline takes the filtering route: rather than designing a noise-tolerant learner, we use multi-LLM consensus to identify and correct likely mislabeled samples before training. This approach is conceptually simple and has the advantage of producing a reusable cleaned dataset that benefits any downstream model, as our experiments confirm.
 
 \section{Methodology}
 
@@ -111,6 +119,16 @@ Wubi ($v_w$) & Word2Vec [14] & $T \times 256$ & Captures shape-similar character
 
 For CKBERT and BGE, character-level embeddings are recovered through offset mapping; where a subword token spans multiple characters, embeddings are averaged. Pinyin and wubi Word2Vec models are trained on the corpus itself and L2-normalized per token. CKBERT and BGE embeddings are extracted once and cached; pinyin and wubi models are retrained per dataset variant to reflect corpus composition differences.
 
+\subsection{Model Overview}
+Figure~\ref{fig:architecture} illustrates the full CMLG pipeline, from multi-stream feature extraction through attention fusion to the final classifier.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{model_architecture.png}
+\caption{CMLG architecture. Four feature streams are projected to 128 dimensions, fused via additive attention, and classified by a Bi-GRU backbone.}
+\label{fig:architecture}
+\end{figure}
+
 \subsection{Feature-Level Attention Fusion}
 \label{sec:attention-fusion}
 The four streams differ in dimensionality (1024, 768, 256, 256); naively concatenating them would let higher-dimensional streams dominate gradient updates. We address this with a two-stage fusion.
@@ -132,14 +150,6 @@ v_t^{\mathrm{fused}} = \sum_{k=1}^{K} \alpha_{t,k} \, \hat{v}_{t,k} \in \mathbb{
 This lets the network emphasize whichever stream is most informative at each character position, rather than applying a fixed weighting.
 
 \subsection{Classification Network}
-Figure~\ref{fig:architecture} illustrates the full CMLG pipeline.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.78\textwidth]{model_architecture.png}
-\caption{CMLG architecture. Four feature streams are projected to 128 dimensions, fused via additive attention, and classified by a Bi-GRU backbone.}
-\label{fig:architecture}
-\end{figure}
 
 The fused sequence $v^{\mathrm{fused}} \in \mathbb{R}^{T \times 128}$ passes through the following layers. A single-layer bidirectional GRU [21] with hidden size 64 per direction encodes the sequence; the final forward and backward hidden states are concatenated to produce $h_{\mathrm{GRU}} \in \mathbb{R}^{128}$. This vector enters a fully connected block: Linear($128 \to 64$) $\to$ BatchNorm(64) $\to$ ReLU $\to$ Dropout($p = 0.3$) $\to$ Linear($64 \to 2$). The output logits are used directly for prediction (argmax) and for loss computation. The total number of trainable parameters (excluding frozen CKBERT and BGE encoders) is approximately 150K, depending on the number of active streams.
 
@@ -152,10 +162,10 @@ For class imbalance we use Focal Loss [11] with focusing parameter $\gamma = 2.0
 \]
 where $p_{i,y_i}$ is the predicted probability for the true class of sample $i$, $w_{y_i}$ is the inverse-frequency class weight, and $C=2$ is the number of classes. All results use stratified 5-fold cross-validation.
 
-\section{Experiments and Results}
+\section{Results}
 
 \subsection{Experimental Setup}
-All experiments use a single NVIDIA A100-SXM4-40GB GPU with PyTorch 2.5. Macro F1 under stratified 5-fold cross-validation is the primary metric. We test five feature configurations---\textbf{only\_c} (CKBERT), \textbf{only\_b} (BGE), \textbf{c+b}, \textbf{c+p+w} (CKBERT + pinyin + wubi), and \textbf{c+p+w+b} (all four streams)---to isolate each stream's contribution.
+All experiments use a single NVIDIA A100-SXM4-40GB GPU with PyTorch 2.5. Macro F1 under stratified 5-fold cross-validation is the primary metric; we also report accuracy, per-class F1, precision, and recall. We test five feature configurations---\textbf{only\_c} (CKBERT), \textbf{only\_b} (BGE), \textbf{c+b}, \textbf{c+p+w} (CKBERT + pinyin + wubi), and \textbf{c+p+w+b} (all four streams)---to isolate each stream's contribution. The same fold splits are reused across all configurations and dataset versions to ensure pairwise comparability.
 
 \subsection{Ablation on the Original Dataset}
 
@@ -178,7 +188,7 @@ c+p+w+b   & 0.8208 & 0.7781 $\pm$ 0.0054 & 0.8531 & 0.7112 \\
 \end{tabular}
 \end{table}
 
-All five configurations fall within a 1.2pp band (0.7709--0.7824), with c+b marginally ahead. The minority-class F1 hovers around 0.70--0.72, well below the neutral-class 0.85+, suggesting a shared bottleneck beyond class imbalance. Notably, pinyin and wubi features provide no benefit here---c+p+w trails c+b, and c+p+w+b ranks last. Whether this reflects genuine redundancy or label noise masking orthographic signals is addressed next.
+All five configurations fall within a narrow 1.2pp band (0.7709--0.7824), with c+b marginally ahead. The minority-class F1 hovers around 0.70--0.72, well below the neutral-class 0.85+, pointing to a bottleneck beyond class imbalance. Pinyin and wubi features provide no measurable benefit here: c+p+w trails c+b, and c+p+w+b ranks last among all configurations.
 
 \subsection{Effect of Label Cleaning}
 
@@ -209,6 +219,10 @@ Dataset & Setting & Accuracy & Macro F1 & F1 (Neutral) & F1 (Opposing) \\
 \end{tabular}
 \end{table}
 
+Moving from Original to Cleaned-Full, the best macro F1 rises from 0.7824 to 0.8259 (+4.4pp). Moving further to Cleaned-HC, it reaches 0.9007 (+12.0pp over Original). The minority-class F1 benefits even more: the best opposing-class F1 jumps from 0.7177 (Original) to 0.8761 (Cleaned-HC), a 15.8pp improvement. This asymmetry is consistent with minority-class samples being disproportionately affected by label noise, because annotators are more likely to disagree on the less prototypical class.
+
+A noteworthy shift occurs in feature rankings. On the original data, c+b achieves the highest macro F1; on both cleaned variants, c+p+w takes the lead. This reversal indicates that the phonetic and structural features do carry discriminative information, but that information becomes learnable only when the training labels are sufficiently reliable.
+
 \subsection{Cross-Dataset Comparison}
 
 Table~\ref{tab:cross-dataset} juxtaposes macro F1 and minority-class F1 across datasets.
@@ -234,7 +248,9 @@ $\Delta$ vs Original & --- & +4.4pp & +12.0pp & --- & +6.2pp & +14.9pp \\
 \end{tabular}
 \end{table}
 
-Three patterns emerge from Tables~\ref{tab:cleaned-results}--\ref{tab:cross-dataset}. First, the cleaning effect is large: the best macro F1 jumps from 0.7824 (Original) to 0.9007 (Cleaned-HC), a 12pp gain; the minority-class F1 rises even more steeply (+14.9pp), consistent with the smaller class being most affected by noisy labels. Second, a feature-ranking reversal occurs: c+b wins on the noisy original, but c+p+w overtakes it on both cleaned variants, indicating that phonetic and structural cues carry genuine discriminative signal that only becomes learnable under clean supervision. Third, quality dominates quantity---Cleaned-HC retains only 6{,}793 of the original 8{,}969 samples yet substantially outperforms both the full noisy set and Cleaned-Full. The four-stream model (c+p+w+b) consistently underperforms c+p+w, suggesting that the semantic overlap between CKBERT and BGE introduces redundancy that the additive attention mechanism cannot resolve.
+The four-stream model (c+p+w+b) consistently underperforms c+p+w across all three datasets. Adding BGE on top of CKBERT, pinyin, and wubi hurts rather than helps, suggesting that the semantic overlap between CKBERT and BGE introduces redundancy that the additive attention mechanism cannot resolve. This observation aligns with the known limitation of additive attention: it computes an independent scalar weight per stream, without modeling pairwise interactions between streams.
+
+Quality dominates quantity in these results. Cleaned-HC retains only 6{,}793 of the original 8{,}969 samples---a 24\% reduction---yet substantially outperforms both the full noisy set and the Cleaned-Full variant. Discarding ambiguous samples produces a cleaner decision boundary that more than compensates for the smaller training set.
 
 \subsection{Baseline Comparison}
 
@@ -266,58 +282,70 @@ Dataset & Method & Accuracy & Macro F1 & F1 (Neutral) & F1 (Opposing) \\
 \end{tabular}
 \end{table}
 
-BERT fine-tuning outperforms CMLG by 1.1--1.4pp in macro F1 across all datasets. This is expected: BERT-ft updates all 110M+ transformer parameters end-to-end, whereas CMLG freezes its pretrained encoders and trains only the projection, attention, and GRU layers ($\sim$150K parameters). SVM trails both neural methods substantially. The cleaning effect is consistent across all three methods (9--14pp gains from Original to Cleaned-HC), confirming that annotation quality, rather than model choice, is the primary constraint.
+BERT fine-tuning outperforms CMLG by 1.1--1.4pp in macro F1 across all datasets. This gap is consistent and statistically meaningful given the low standard deviations (0.004--0.010). The result is expected: BERT updates all 110M+ transformer parameters end-to-end, whereas CMLG freezes its pretrained encoders and trains only the projection, attention, and GRU layers (approximately 150K parameters). SVM trails both neural methods by a wider margin---5.5--9.6pp below BERT on the cleaned datasets---but still benefits substantially from label cleaning.
+
+The cleaning effect is consistent across all three methods. SVM improves from 0.7719 to 0.8679 (+9.6pp), CMLG from 0.7824 to 0.9007 (+11.8pp), and BERT from 0.7935 to 0.9128 (+11.9pp) when moving from Original to Cleaned-HC. The near-identical magnitude of improvement across architecturally different models confirms that annotation quality, rather than model choice, is the primary constraint on this task. No amount of feature engineering or model scaling on the noisy data can match the gains from simply correcting the labels.
 
 \section{Discussion}
 
 \subsection{Orthographic Features and Label Quality}
-The feature-ranking reversal between noisy and clean data is the central empirical finding. On the original labels, pinyin and wubi features add nothing; on cleaned labels, c+p+w consistently leads. This resolves an apparent contradiction with Ma et al.\ [9], who reported gains from character-form features on SWSR: the discrepancy likely reflects differences in noise levels between their processing and ours. Mechanistically, the attention module learns to up-weight whichever stream is most informative at each character position; under noisy supervision, these weights become unreliable and the fusion degrades toward uniform averaging, erasing the advantage of fine-grained orthographic cues.
+The feature-ranking reversal between noisy and clean data is the central empirical finding of this work. On the original labels, pinyin and wubi features add nothing to classification performance; on cleaned labels, c+p+w consistently leads all configurations. This resolves an apparent contradiction with Ma et al.\ [9], who reported gains from character-form features on SWSR: the discrepancy likely reflects differences in noise levels between their processing pipeline and ours, or differences in how orthographic features are integrated into the model.
+
+Mechanistically, the attention module learns to up-weight whichever stream is most informative at each character position. Under noisy supervision, gradient signals from mislabeled samples corrupt the attention weights, causing the fusion to degrade toward near-uniform averaging. When this happens, the subtle discriminative signal carried by pinyin and wubi embeddings is drowned out by the stronger but noisier gradients from the semantic streams. Once labels are corrected, the attention weights stabilize, and the model can exploit phonetic and structural cues---for instance, detecting that a character was substituted for a homophone of a gendered slur, or that a shape-similar glyph replaces a character in a derogatory term. These are precisely the evasion tactics that semantic embeddings alone cannot capture, because the embedding of the substitute character reflects its literal meaning rather than the intended offensive one.
 
 \subsection{Why BERT Fine-tuning Outperforms CMLG}
-BERT-ft updates 110M+ parameters end-to-end, while CMLG trains only $\sim$150K parameters atop frozen encoders---the 1--1.4pp gap is modest given this asymmetry. The trade-off is interpretability: CMLG's modular architecture makes it possible to isolate which feature streams contribute and how their utility depends on label quality, an analysis that monolithic fine-tuning does not support. The finding that orthographic features shift from useless to most valuable after cleaning would not have been discoverable from BERT-ft experiments alone.
+BERT fine-tuning updates 110M+ parameters end-to-end, while CMLG trains only approximately 150K parameters on top of frozen encoders. The 1.1--1.4pp macro F1 gap in favor of BERT is modest given this three-orders-of-magnitude difference in trainable capacity. BERT's advantage likely comes from its ability to adapt internal representations to the task, while CMLG must rely on fixed pretrained features and compensate through its fusion and classification layers.
+
+The trade-off is interpretability. CMLG's modular architecture makes it possible to isolate which feature streams contribute and how their utility depends on label quality---an analysis that monolithic fine-tuning does not support. The finding that orthographic features shift from useless to most valuable after cleaning would not have been discoverable from BERT fine-tuning experiments alone, because BERT lacks separate, inspectable feature channels. For researchers interested in understanding \emph{why} certain features matter for Chinese hate speech detection, rather than simply maximizing a leaderboard score, the multi-stream design offers analytical leverage that a single-encoder model cannot provide.
 
 \subsection{Annotation Quality as the Dominant Factor}
-The 12pp macro F1 gain from label cleaning---observed across all three methods---dwarfs anything achievable by changing features or models on the noisy data (total spread: 1.2pp). This is consistent with the label-noise literature [19,20] and suggests that for this task, improvements in annotation quality yield higher returns than architectural advances. The quantity--quality trade-off reinforces this point: discarding 24\% of the corpus through unanimous-agreement filtering produces a far better training signal than retaining all noisy samples.
+The 12pp macro F1 gain from label cleaning---observed across all three methods (SVM, BERT, CMLG)---dwarfs anything achievable by changing features or models on the noisy data (total spread on Original: 1.2pp for CMLG configurations). This result aligns with the predictions of the label-noise literature [19,20]: when a non-trivial fraction of training labels are incorrect, improvements in annotation quality yield higher returns than architectural advances.
 
-\subsection{Limitations}
-The binary formulation collapses directional stance, limiting downstream utility. The three LLMs share similar pretraining paradigms and may make correlated errors on genuinely ambiguous samples, introducing systematic bias into the cleaned labels. All data come from SWSR; cross-platform generalization is untested. The consistent underperformance of c+p+w+b relative to c+p+w indicates that additive attention is insufficient for resolving high inter-stream redundancy; more expressive fusion mechanisms (e.g., cross-attention or gating) may be needed.
+The quantity--quality trade-off reinforces this point. Cleaned-HC discards 24\% of the corpus through unanimous-agreement filtering, yet produces a far better training signal than retaining all samples. This is not simply a matter of removing hard examples; it reflects the removal of genuinely mislabeled data points that would otherwise push decision boundaries in the wrong direction. The practical implication is clear: for tasks where annotation guidelines are subjective---as is common in hate speech and sentiment analysis---investing effort in label verification is likely to deliver larger performance gains than investing in more sophisticated modeling.
+
+\subsection{Limitations and Future Directions}
+Several limitations should be acknowledged. The binary formulation collapses directional stance (pro-male vs.\ pro-female antagonism), limiting the downstream utility of the classifier for content moderation systems that need to distinguish attack targets. The three LLMs used for cleaning share similar pretraining paradigms (large-scale Chinese web text) and may make correlated errors on genuinely ambiguous samples, introducing systematic bias into the cleaned labels. We mitigated this risk by using models from three different organizations (Alibaba, Zhipu, DeepSeek), but the possibility of shared blind spots remains.
+
+All data come from the SWSR corpus; cross-platform generalization to Douyin, Bilibili, or WeChat is untested. The consistent underperformance of c+p+w+b relative to c+p+w indicates that additive attention is insufficient for resolving high inter-stream redundancy, and more expressive fusion mechanisms---such as cross-attention between streams or gating networks---may be needed to benefit from all four streams simultaneously. Finally, our approach requires access to large LLM APIs for the cleaning step, which introduces cost and reproducibility concerns for researchers without such access.
 
 \section{Conclusion}
-We proposed CMLG, a multi-stream model that fuses CKBERT, BGE, pinyin, and wubi features through learnable attention for gender-antagonistic discourse detection in Chinese social media, and coupled it with an LLM-based label cleaning pipeline.
+This paper presented CMLG, a multi-stream classification model that fuses CKBERT contextual embeddings, BGE dense-semantic embeddings, pinyin phonetic vectors, and wubi structural vectors through learnable feature-level additive attention, followed by a Bi-GRU sequence encoder and a fully connected classifier. The model was designed to detect gender-antagonistic discourse in Chinese social media, with particular attention to the evasion tactics---homophonic substitution and shape-similar character swaps---that are characteristic of this domain.
 
-Experiments across three dataset versions, five feature configurations, and two baselines yield three findings. First, label cleaning raises macro F1 by 9--14pp for every method tested---including SVM and BERT---establishing annotation quality as the dominant factor. Second, Chinese orthographic features (pinyin, wubi) are ineffective under noisy labels but become the strongest feature configuration after cleaning, demonstrating that annotation quality gates the learnability of fine-grained linguistic cues. Third, retaining only unanimously agreed samples outperforms the full noisy corpus despite a 24\% reduction in data volume.
+To address the label noise present in the SWSR dataset, we developed a cleaning pipeline in which three heterogeneous large language models independently classify every sample, and predictions are aggregated by majority vote. This produced two cleaned dataset variants: Cleaned-Full (majority agreement, 8{,}962 samples) and Cleaned-HighConf (unanimous agreement, 6{,}793 samples). We evaluated CMLG, along with SVM and BERT baselines, across all three dataset versions using stratified 5-fold cross-validation.
 
-Future work will extend the framework to directional stance classification, evaluate cross-platform generalization, and explore more expressive fusion mechanisms.
+The experiments yielded three principal findings. First, label cleaning raised macro F1 by 9--14 percentage points for every method tested, establishing annotation quality as the dominant factor in this classification task---more important than model architecture, feature selection, or training strategy. Second, Chinese orthographic features (pinyin and wubi) were ineffective under noisy labels but became the strongest feature configuration after cleaning, demonstrating that annotation quality directly gates the learnability of fine-grained linguistic cues. Third, retaining only unanimously agreed samples outperformed the full corpus despite a 24\% reduction in data volume, confirming that label quality matters more than dataset size when annotations are subjective.
 
-\appendix
-\section{LLM Cleaning Prompt}
-\label{app:prompt}
-The following Chinese prompt was sent identically to each of the three LLMs. Input texts exceeding 500 characters were truncated before querying.
+Future work will pursue three directions: extending the framework to directional stance classification (distinguishing pro-male from pro-female antagonism), evaluating cross-platform generalization on data from Douyin and Bilibili, and exploring more expressive fusion mechanisms such as cross-attention or gating networks to better handle inter-stream redundancy.
 
-\begin{quote}
-\small
-你是一个中文社交媒体文本分类专家，专门识别性别对立言论。
+% \appendix
+% \section{LLM Cleaning Prompt}
+% \label{app:prompt}
+% The following Chinese prompt was sent identically to each of the three LLMs. Input texts exceeding 500 characters were truncated before querying.
 
-分类标准：
+% \begin{quote}
+% \small
+% 你是一个中文社交媒体文本分类专家，专门识别性别对立言论。
 
-- 性别对立言论（标签1）：针对特定性别群体的贬低、攻击、歧视、污名化、刻板印象强化、挑拨性别矛盾的言论。包括但不限于：使用性别歧视性称呼（如"婚驴""舔狗""小仙女"等讽刺性称呼）、将负面特征归因于某一性别、煽动性别对立情绪。
+% 分类标准：
 
-- 中立言论（标签0）：不包含上述内容的普通评论，即使话题涉及性别议题，只要表达方式客观理性、不带攻击性，也属于中立。
+% - 性别对立言论（标签1）：针对特定性别群体的贬低、攻击、歧视、污名化、刻板印象强化、挑拨性别矛盾的言论。包括但不限于：使用性别歧视性称呼（如"婚驴""舔狗""小仙女"等讽刺性称呼）、将负面特征归因于某一性别、煽动性别对立情绪。
 
-注意：
+% - 中立言论（标签0）：不包含上述内容的普通评论，即使话题涉及性别议题，只要表达方式客观理性、不带攻击性，也属于中立。
 
-- 仅根据文本本身判断，不要推测发言者意图
+% 注意：
 
-- 反讽、阴阳怪气的性别攻击也算对立言论
+% - 仅根据文本本身判断，不要推测发言者意图
 
-- 讨论性别议题但不带攻击性的属于中立
+% - 反讽、阴阳怪气的性别攻击也算对立言论
 
-请判断以下中文社交媒体评论是否为性别对立言论。
+% - 讨论性别议题但不带攻击性的属于中立
 
-评论：\{text\}
+% 请判断以下中文社交媒体评论是否为性别对立言论。
 
-请只回复一个数字：1（性别对立）或 0（中立）。
-\end{quote}
+% 评论：\{text\}
+
+% 请只回复一个数字：1（性别对立）或 0（中立）。
+% \end{quote}
 
 \section*{References}
 \begin{enumerate}

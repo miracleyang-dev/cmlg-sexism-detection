@@ -1,12 +1,54 @@
-# CMLG-Experiment
+# cmlg-sexism-detection
 
-Code and experiments for the CMLG research project.
+本仓库（cmlg-sexism-detection）包含 CMLG 研究项目的代码、实验配置和论文材料，聚焦于中文社交媒体性别对立言论检测与 LLM 辅助清洗。
 
-> **Note:** The paper associated with this repository is currently in preparation and will undergo major revisions. We will update this README with more specific instructions, documentation, and a link to the paper (e.g., arXiv) once it is available.
+## 项目亮点
 
-## Repository Structure
+- 提出 CMLG：多流特征（语义、拼音、五笔等）融合的轻量模型
+- 基于多 LLM 投票的标签清洗流程，构建两版清洗数据集
+- 系统化消融实验，验证标签质量对特征可学习性的决定性影响
 
-- `configs/`: Configuration files for various experiments.
-- `paper/`: Source files for the manuscript.
-- `*.py`: Core source code for data processing, the CMLG model, training (`main.py`), inference (`inference.py`), and ablation studies (`ablation.py`).
-- `requirements.txt`: Python package dependencies.
+## 仓库结构
+
+- `configs/`: 实验配置文件
+- `paper/`: 论文源文件（LaTeX）
+- `*.py`: 核心代码（数据处理、模型、训练、推理、消融）
+- `requirements.txt`: 依赖列表
+
+## LLM 标签清洗流程
+
+为降低标注噪声，采用三模型独立标注 + 多数投票的清洗策略：
+
+1. 三个 LLM（Qwen2.5-72B-Instruct、GLM-4-32B-0414、DeepSeek-V3）独立判断每条样本
+2. 以多数投票作为最终标签，得到 Cleaned-Full
+3. 若三者完全一致，则进入 Cleaned-HighConf（更高置信度）
+
+该流程能显著提升各类模型的宏 F1，并揭示拼音/五笔特征在标签修正后才具备可学习性。
+
+## LLM 清洗提示词
+
+以下是用于三模型统一清洗的提示词：
+
+```
+你是一个中文社交媒体文本分类专家，专门识别性别对立言论。
+
+分类标准：
+
+- 性别对立言论（标签1）：针对特定性别群体的贬低、攻击、歧视、污名化、刻板印象强化、挑拨性别矛盾的言论。包括但不限于：使用性别歧视性称呼（如"婚驴""舔狗""小仙女"等讽刺性称呼）、将负面特征归因于某一性别、煽动性别对立情绪。
+
+- 中立言论（标签0）：不包含上述内容的普通评论，即使话题涉及性别议题，只要表达方式客观理性、不带攻击性，也属于中立。
+
+注意：
+
+- 仅根据文本本身判断，不要推测发言者意图
+
+- 反讽、阴阳怪气的性别攻击也算对立言论
+
+- 讨论性别议题但不带攻击性的属于中立
+
+请判断以下中文社交媒体评论是否为性别对立言论。
+
+评论：{text}
+
+请只回复一个数字：1（性别对立）或 0（中立）。
+```

@@ -63,13 +63,11 @@ embedding_models/
 *.synctex.gz
 *.toc
 *.xdv
-*.pdf
 
 # Experiment Results / Outputs
 results/
 results_baselines/
 
 # added
-*.tex
 *.docx
 *.csl
